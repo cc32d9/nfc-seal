@@ -55,7 +55,14 @@ thus preventing from insider attacks: if someone tries to produce a
 seal knowing the private key, the sequence number is already
 registered on the blockchain.
 
-
+It is worth mentioning that the design is only secure when the
+validator observes the physical state of the seal and makes sure it
+looks untampered. All related data on the chip is readable without a
+password, so one can, in theory, construct a device that responds
+exactly like the original seal, including the vendor
+signature. However it's very expensive to make a counterfreight
+microchip that simulates the original NXP NTAG and is made in the same
+form as the original seal.
 
 
 
