@@ -26,14 +26,14 @@ workflow:
   exactly like the original one.
 
 * The receiver of goods can easily verify the authenticity by reading
-  the data on the chip and comparing it with the datta on blockchain.
+  the data on the chip and comparing it with the data on blockchain.
 
 
 The NTAG chips by NXP Semiconductors are cheap and reliable
 microdevices produced in various forms and embedded in various kinds
 of seals, labels, stickers, cards and keyfobs.
 
-Such chip contains 144 or more bytes of memory that can be protected
+Such a chip contains 144 or more bytes of memory that can be protected
 with a 4-byte password from writing or reading+writing. Also it has a
 7-byte UID which is guaranteed to be unique by NXP. Also it has a
 read-only area containing a vendor ECC signature of the UID.
@@ -44,11 +44,11 @@ millimeters.
 
 
 The issuer is marking the chips with a 128-bit ID (64-bit issuer
-identifier and 64-bit sequence number). It also reads the UID and
-vendor signature, signs this whole data with their private key, and
-the signature and the ID are written on the chip. The chip is then
+identifier and 64-bit sequence number). The issuer also reads the UID
+and vendor signature, signs this whole data with their private key,
+and the signature and the ID are written on the chip. The chip is then
 protected from writing with a random password. The password is not
-stored anywhere, makin gthe chip practically read-only.
+stored anywhere, making the chip practically read-only.
 
 The issuer may register the hash of the signature on the blockchain,
 thus preventing from insider attacks: if someone tries to produce a
