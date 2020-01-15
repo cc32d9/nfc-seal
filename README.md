@@ -151,7 +151,7 @@ Usage of NXP NTAG 424 DNA chips
 -------------------------------
 
 NXP has recently released a new NFC chip, NTAG 424 DNA. It's slightly
-more expensive than th eolder NTAG213/215/216, but it allows defining
+more expensive than the older NTAG213/215/216, but it allows defining
 an AES password that is securely written on the chip, and the chip is
 keeping a counter of NFC sessions. On every NFC communication, the
 counter is increased, and it can be retrieved in encrypted form, using
