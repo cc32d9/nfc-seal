@@ -159,11 +159,13 @@ the stored password.
 
 The encrypted counter is then transmitted to some online validation
 service, and this service can confirm the validity of the password -
-for example, by signing an transaction on the blockchain.
+for example, by signing a transaction on the blockchain.
 
 Detailed specifications and usage workflow are yet to be designed.
 
-
+These chips would allow intermediate verifications: a container of
+goods would travel between checkpoints, and every checkpoint would
+register a unique proof of receipt.
 
 
 Validation
