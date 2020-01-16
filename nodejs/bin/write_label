@@ -1,0 +1,56 @@
+#!/usr/bin/env node
+
+const program           = require('commander');
+const ecc               = require('eosjs-ecc');
+const seal              = require('../lib/nfc-seal');
+
+
+program
+    .option('--issuer [value]', 'Issuer ID')
+    .option('--seq [value]', 'Sequence number', 1)
+    .option('--key [value]', 'Private key')
+    .option('--loop', 'Continue by increasing sequence number')
+    .parse(process.argv);
+
+if (!program.issuer || !program.key) {
+    program.help();
+}
+
+
+const issuer = Buffer.allocUnsafe(8);
+issuer.writeBigUInt64BE(BigInt(program.issuer));
+
+const seqnum = Buffer.allocUnsafe(8);
+seqnum.writeBigUInt64BE(BigInt(program.seq));
+
+const privkey = ecc.PrivateKey.fromString(program.key);
+
+seal.nfc_loop(do_write_label, !program.loop);
+
+async function do_write_label(reader, card) {
+    console.info('Writing a label for issuer=' + issuer.toString('hex') +
+                 ', sequece=' + seqnum.toString('hex'));
+
+    await seal.write_label(reader, card, issuer, seqnum, privkey);
+    console.info('Done');
+    
+    if( program.loop ) {
+        seqnum.writeBigUInt64BE(seqnum.readBigInt64BE()+1);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+/*
+ Local Variables:
+ mode: javascript
+ indent-tabs-mode: nil
+ End:
+*/

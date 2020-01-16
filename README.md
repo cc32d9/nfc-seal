@@ -102,6 +102,9 @@ The NFC tag data is compliant with NDEF format, as follows:
 
 * Payload:
 
+  * 8 bytes of project ID: `0x076cf31a2b7f35a3`. This value is fixed
+    for all compatible implementations.
+  
   * 2 bytes of format version (0x0001)
 
   * 64 bytes of label signature.

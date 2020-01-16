@@ -1,0 +1,24 @@
+{
+    "name": "nfc-seal",
+    "version": "0.0.1",
+    "description": "NFC Seal of Authenticity",
+    "license": "MIT",
+    "author": {
+        "name": "cc32d9",
+        "url": "https://github.com/cc32d9"
+    },
+    "bin": {
+        "writetags": "./bin/writetags"
+    },
+    "engines": {
+        "node": ">= 0.12.0"
+    },
+    "dependencies": {
+        "@pokusew/pcsclite": "pokusew/node-pcsclite#pull/26/head",
+        "nfc-pcsc": "^0.7.4",
+        "@taptrack/ndef": ">= 1.0.3",
+        "commander": "^2.19.0",
+        "node-fetch": ">= 2.6.0",
+        "eosjs": "^20.0.0"
+    }
+}
