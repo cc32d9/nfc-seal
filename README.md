@@ -107,6 +107,10 @@ The NFC tag data is compliant with NDEF format, as follows:
   
   * 2 bytes of format version (0x0001)
 
+  * 8 bytes of issuer ID 
+  
+  * 8 bytes of sequence number assigned by the issuer
+        
   * 65 bytes of label signature.
 
 

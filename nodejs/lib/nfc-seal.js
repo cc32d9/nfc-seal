@@ -106,7 +106,7 @@ myexports.nfc_loop = (callback, only_once) => {
 };
 
 
-myexports.write_label = async (reader, card, issuerid, seqnum, privkey) => {
+myexports.read_seed = (reader, card, issuerid, seqnum) => {
     let offset = 0;
     let seed = Buffer.allocUnsafe(7+8+8+32);
     Buffer.from(card.uid, 'hex').copy(seed, offset, 0, 7);
@@ -116,7 +116,12 @@ myexports.write_label = async (reader, card, issuerid, seqnum, privkey) => {
     seqnum.copy(seed, offset, 0, 8);
     offset += 8;
     Buffer.from(card.cap.vendorsig, 'hex').copy(seed, offset, 0, 32);
+    return seed;
+}
 
+
+myexports.write_label = async (reader, card, issuerid, seqnum, privkey) => {
+    let seed = myexports.read_seed(reader, card, issuerid, seqnum);
     // console.log('Seed: ' + seed.toString('hex'));
 
     let labelsig_str = ecc.sign(seed, privkey);
@@ -127,14 +132,19 @@ myexports.write_label = async (reader, card, issuerid, seqnum, privkey) => {
     issuerid.copy(id, 0, 0, 8);
     seqnum.copy(id, 8, 0, 8);
 
-    offset = 0;
-    let payload = Buffer.allocUnsafe(8+2+65);
+    let offset = 0;
+    let payload = Buffer.allocUnsafe(8+2+8+8+65);
     myexports.projsig.copy(payload, offset, 0, 8);
     offset += 8;
-    myexports.formatver.copy(payload, offset, 0, 4);
-    offset += 4;
+    myexports.formatver.copy(payload, offset, 0, 2);
+    offset += 2;
+    issuerid.copy(payload, offset, 0, 8);
+    offset += 8;
+    seqnum.copy(payload, offset, 0, 8);
+    offset += 8;
     labelsig.copy(payload, offset, 0, 65);
 
+    // console.log('Writing ' + payload.length + ' bytes of payload');    
     let record = new ndef.Record(false,
                                 ndef.Record.TNF_UNKNOWN,
                                 new Uint8Array([]), // record type (unised in UNKNOWN)
@@ -159,14 +169,77 @@ myexports.write_label = async (reader, card, issuerid, seqnum, privkey) => {
     ndefdata.copy(wrbuf, 2);
     wrbuf.writeUInt8(0xFE, ndefdata.length+2);
     
-    // console.log('Writing ' + wrbuf.length + ' bytes');
+    console.log('Writing ' + wrbuf.length + ' bytes');
     await reader.write(4, wrbuf, 4);
 
     return labelsig;
 };
 
 
+myexports.read_label = async (reader, card) => {
+    return new Promise(function(resolve, reject) {
+        reader.read(4, 144).then(function(rawdata) {
+            if( rawdata.readUInt8(0) != 0x03 ) {
+                reject('Unexpected type in TLV: ' + rawdata.readUInt8(0));
+            }
+            
+            let msglen = rawdata.readUInt8(1);
+            if( rawdata.readUInt8(2+msglen) != 0xFE ) {
+                reject('Missing TLV terminator');
+            }
+            
+            let message = ndef.Message.fromBytes(Buffer.from(rawdata, 2, msglen));
+            let record = message.getRecords()[0];
+            let payload = Buffer.from(record.payload);
+            // console.log('Read ' + payload.length + ' bytes of payload');
+            let offset = 0;
+            
+            let ps = payload.subarray(offset, offset+8);
+            offset += 8;
+            if( !ps.equals(myexports.projsig) ) {
+                reject('Wrong project signature: ' + ps.toString('hex'));
+            }
+            
+            let fv = payload.subarray(offset, offset+2);
+            offset += 2;
+            if( !fv.equals(myexports.formatver) ) {
+                reject('Wrong format version: ' + fv.toString('hex'));
+            }
+            
+            let issuerid = Buffer.allocUnsafe(8);
+            payload.copy(issuerid, 0, offset, offset+8);
+            offset += 8;
+            
+            let seqnum = Buffer.allocUnsafe(8);
+            payload.copy(seqnum, 0, offset, offset+8);
+            offset += 8;
+            
+            let labelsig = Buffer.allocUnsafe(65);
+            payload.copy(labelsig, 0, offset, offset+65);
+            
+            resolve({
+                'seed': myexports.read_seed(reader, card, issuerid, seqnum),
+                'issuerid': issuerid,
+                'seqnum': seqnum,
+                'labelsig': labelsig
+            });
+        });
+    });
+};
 
+
+
+myexports.verify_labelsig = (label, pubkey) => {
+    let sig = ecc.Signature.fromBuffer(label.labelsig);
+    return(sig.verify(label.seed, pubkey));
+}
+    
+    
+    
+    
+    
+
+    
 
 myexports.auth = async (reader, card, pw) => {
     // CMD: PWD_AUTH via Direct Transmit (ACR122U) and Data Exchange (PN533)
