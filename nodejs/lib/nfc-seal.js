@@ -117,32 +117,36 @@ myexports.write_label = async (reader, card, issuerid, seqnum, privkey) => {
     offset += 8;
     Buffer.from(card.cap.vendorsig, 'hex').copy(seed, offset, 0, 32);
 
-    console.log('Seed: ' + seed.toString('hex'));
-    
-    let labelsig = Buffer.from(ecc.sign(seed, privkey));
+    // console.log('Seed: ' + seed.toString('hex'));
+
+    let labelsig_str = ecc.sign(seed, privkey);
+    let labelsig_obj = ecc.Signature.fromString(labelsig_str);
+    let labelsig = labelsig_obj.toBuffer();
     
     let id = Buffer.allocUnsafe(8+8);
     issuerid.copy(id, 0, 0, 8);
     seqnum.copy(id, 8, 0, 8);
 
     offset = 0;
-    let payload = Buffer.allocUnsafe(8+2+64);
+    let payload = Buffer.allocUnsafe(8+2+65);
     myexports.projsig.copy(payload, offset, 0, 8);
     offset += 8;
     myexports.formatver.copy(payload, offset, 0, 4);
     offset += 4;
-    labelsig.copy(payload, offset, 0, 64);
+    labelsig.copy(payload, offset, 0, 65);
 
     let record = new ndef.Record(false,
-                                ndef.Record.TNF_WELL_KNOWN,
+                                ndef.Record.TNF_UNKNOWN,
                                 new Uint8Array([]), // record type (unised in UNKNOWN)
                                 id,
                                 payload);
 
+    let message = new ndef.Message([record]);
+        
     // add TLV (0x03, len), termination (0xFE)
     // and pad the NDEF data to 4-byte frames
     
-    let ndefdata = Buffer.from(record.toByteArray());
+    let ndefdata = Buffer.from(message.toByteArray());
     if( ndefdata.length > 254 ) {
         throw new Error('NDEF data too long');
     }
@@ -155,7 +159,7 @@ myexports.write_label = async (reader, card, issuerid, seqnum, privkey) => {
     ndefdata.copy(wrbuf, 2);
     wrbuf.writeUInt8(0xFE, ndefdata.length+2);
     
-    console.log('Writing ' + wrbuf.length + ' bytes');
+    // console.log('Writing ' + wrbuf.length + ' bytes');
     await reader.write(4, wrbuf, 4);
 
     return labelsig;

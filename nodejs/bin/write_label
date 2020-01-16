@@ -35,7 +35,9 @@ async function do_write_label(reader, card) {
     console.info('Done');
     
     if( program.loop ) {
-        seqnum.writeBigUInt64BE(seqnum.readBigInt64BE()+1);
+        let s = seqnum.readBigInt64BE();
+        s++;
+        seqnum.writeBigUInt64BE(s);
     }
 }
 
