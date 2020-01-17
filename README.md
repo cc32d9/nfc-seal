@@ -111,7 +111,10 @@ The NFC tag data is compliant with NDEF format, as follows:
   
   * 8 bytes of sequence number assigned by the issuer
         
-  * 65 bytes of label signature.
+  * 65 bytes of label signature in format compatible with EOSIO
+    signature serialization: the first byte indicates a type (0 for
+    secp256k1, 1 for secp256r1), and the rest is 64 bytes of ECC
+    signature.
 
 
 
