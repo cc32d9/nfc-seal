@@ -6,16 +6,26 @@ Telegram chat for project discussion: https://t.me/nfc_seal
 Introduction
 ------------
 
+This project aims to build a solution for fighting counterfreight. A
+manufacturer will be able to attach an electronic seal to their goods
+before shipping, and the recipient will be able to verify that the
+seal is original and not tampered with.
+
+Both sealing and verification will be done with mobile phones or
+specialized handheld devices. Verification of authenticity can be done
+either with the use of a public blockchain, or offline. The protocol
+is open, which means any third party can build their solutions and
+make them interoperable.
+
 The technology being used here is not new, but nobody has come up yet
-with an open standard for traceability and on-chain verification. This
-project aims to propose an open standard, so that many vendors and
-manufactures would be able to build their products and become
-interoperable.
+with an open standard for traceability and on-chain verification. Open
+standard is what distinguishes this project from others.
 
 
-The goal of this project is to build a framework around the following
-workflow:
+Functional overview
+-------------------
 
+The following workflow is being implemented in this project:
 
 * An issuer of seals is initializing NXP NTAG213/215/216 NFC chips
   with unique signatures (called label signatures in this document),
@@ -50,7 +60,6 @@ read-only area containing a vendor ECC signature of the UID.
 Modern smartphones equipped with an NFC reader can read and write on
 such chips. The maximum distance of communication is only a few
 millimeters.
-
 
 The issuer is marking the chips with a 128-bit ID (64-bit issuer
 identifier and 64-bit sequence number). The issuer also reads the UID
