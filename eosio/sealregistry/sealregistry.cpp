@@ -18,7 +18,8 @@ limitations under the License.
 #include <eosio/multi_index.hpp>
 #include <eosio/crypto.hpp>
 #include <eosio/time.hpp>
-
+#include <eosio/system.hpp>
+#include <eosio/string.hpp>
 
 using namespace eosio;
 
@@ -113,12 +114,122 @@ CONTRACT sealregistry : public eosio::contract {
 
 
   
-    
-    
+  ACTION addseal(uint64_t issuerid, uint64_t seqnum, checksum256 sighash,
+                 uint32_t expires_days, uint64_t workflow, name status)
+  {
+    issuerids _ids(_self, 0);
+    auto iiditr = _ids.find(issuerid);
+    check(iiditr != _ids.end(), "Unknown issuer ID");
+    name owner = iiditr->owner;
+    require_auth(owner);
 
-      
+    workflows _workflows(_self, 0);
+    auto wfidx = _workflows.get_index<name("workflow")>();
+    auto wfitr = wfidx.find(get_seq_key(issuerid, workflow));
+    check(wfitr != wfidx.end(), "Cannot find workflow ID");
     
+    seals _seals(_self, 0);
+    auto slidx = _seals.get_index<name("seq")>();
+    check(slidx.find(get_seq_key(issuerid, seqnum)) == slidx.end(),
+          "Duplicate sequence number");
+    
+    _workflows.modify( *wfitr, same_payer, [&]( auto& item ) {
+                                             item.sealscnt++;
+                                           });
+    
+    _seals.emplace(owner,
+                   [&]( auto& item ) {
+                     item.id = _seals.available_primary_key();
+                     item.issuerid = issuerid;
+                     item.seqnum = seqnum;
+                     item.sighash = sighash;
+                     item.expires = time_point_sec(current_time_point() +
+                                                   microseconds(1000000ll * expires_days * 86400));
+                     item.workflow = workflow;
+                     item.status = status;
+                   });
+  }
+
   
+  ACTION setstatus(uint64_t issuerid, uint64_t seqnum, name status)
+  {
+    issuerids _ids(_self, 0);
+    auto iiditr = _ids.find(issuerid);
+    check(iiditr != _ids.end(), "Unknown issuer ID");
+    name owner = iiditr->owner;
+
+    seals _seals(_self, 0);
+    auto slidx = _seals.get_index<name("seq")>();
+    auto slitr = slidx.find(get_seq_key(issuerid, seqnum));
+    check(slitr != slidx.end(), "Cannot find the sequence number");
+
+    workflows _workflows(_self, 0);
+    auto wfidx = _workflows.get_index<name("workflow")>();
+    auto wfitr = wfidx.find(get_seq_key(issuerid, slitr->workflow));
+    check(wfitr != wfidx.end(), "This must never happen 1");
+
+    check(has_auth(owner) || has_auth(wfitr->transit) || has_auth(wfitr->recipient),
+          "Only issuer, transit or recepient can modify the status");
+
+    check(slitr->status != status, "This seal has already this status");
+    
+    _seals.modify( *slitr, same_payer, [&]( auto& item ) {
+                                         item.status = status;
+                                       });
+  }
+
+  
+  ACTION delseal(uint64_t issuerid, uint64_t seqnum, string memo)
+  {
+    seals _seals(_self, 0);
+    auto slidx = _seals.get_index<name("seq")>();
+    auto slitr = slidx.find(get_seq_key(issuerid, seqnum));
+    check(slitr != slidx.end(), "Cannot find the sequence number");
+
+    workflows _workflows(_self, 0);
+    auto wfidx = _workflows.get_index<name("workflow")>();
+    auto wfitr = wfidx.find(get_seq_key(issuerid, slitr->workflow));
+    check(wfitr != wfidx.end(), "This must never happen 2");
+
+    check(has_auth(wfitr->recipient), "Only recepient can delete the seal");
+
+    _workflows.modify( *wfitr, same_payer, [&]( auto& item ) {
+                                             item.sealscnt--;
+                                           });
+    
+    slidx.erase(slitr);
+  }
+
+
+  ACTION wipeexpired(uint16_t count)
+  {
+    bool done_something = false;
+    auto _now = time_point_sec(current_time_point());
+
+    workflows _workflows(_self, 0);
+    auto wfidx = _workflows.get_index<name("workflow")>();
+    
+    seals _seals(_self, 0);
+    auto slidx = _seals.get_index<name("expires")>();
+    auto slitr = slidx.lower_bound(0);
+    while( count-- > 0 && slitr != slidx.end() && slitr->expires <= _now ) {
+
+      auto wfitr = wfidx.find(get_seq_key(slitr->issuerid, slitr->workflow));
+      check(wfitr != wfidx.end(), "This must never happen 3");
+      _workflows.modify( *wfitr, same_payer, [&]( auto& item ) {
+                                               item.sealscnt--;
+                                             });
+      slitr = slidx.erase(slitr);
+      done_something = true;
+    }
+
+    check(done_something, "There are no expired seals at the moment");
+  }
+
+    
+    
+    
+    
   
  private:
 
