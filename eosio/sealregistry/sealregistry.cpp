@@ -51,11 +51,11 @@ CONTRACT sealregistry : public eosio::contract {
     require_auth(owner);
 
     pubkeys _pubkeys(_self, 0);
-
+    
     /* search for an overlapping interval */    
     auto endidx = _pubkeys.get_index<name("seqend")>();
     auto enditr = endidx.lower_bound(get_seq_key(issuerid, seq_start));
-    if( enditr != endidx.end() ) {
+    if( enditr != endidx.end() && enditr->issuerid == issuerid ) {
       check(enditr->seq_start > seq_end, "Overlapping intervals");
     }
 
@@ -68,8 +68,20 @@ CONTRACT sealregistry : public eosio::contract {
                             });
   }
 
+  
+  ACTION wipekeys()
+  {
+    require_auth(_self);
+    pubkeys _pubkeys(_self, 0);
+    auto itr = _pubkeys.lower_bound(0);
+    while( itr != _pubkeys.end() ) {
+      itr = _pubkeys.erase(itr);
+    }
+  }
+      
+  
 
-  ACTION addwflow(uint64_t issuerid, uint64_t workflow, name transit, name recipient)
+  ACTION addwflow(uint64_t issuerid, uint64_t workflow, string description, name transit, name recipient)
   {
     issuerids _ids(_self, 0);
     auto iiditr = _ids.find(issuerid);
@@ -82,13 +94,14 @@ CONTRACT sealregistry : public eosio::contract {
 
     workflows _workflows(_self, 0);
     auto wfidx = _workflows.get_index<name("workflow")>();
-    check(wfidx.find(get_seq_key(issuerid, workflow)) != wfidx.end(),
+    check(wfidx.find(get_seq_key(issuerid, workflow)) == wfidx.end(),
           "This workflow ID already exists");
     
     _workflows.emplace(owner, [&]( auto& item ) {
                                 item.id = _workflows.available_primary_key();
                                 item.issuerid = issuerid;
                                 item.workflow = workflow;
+                                item.description = description;
                                 item.transit = transit;
                                 item.recipient = recipient;
                                 item.sealscnt = 0;
@@ -151,7 +164,7 @@ CONTRACT sealregistry : public eosio::contract {
   }
 
   
-  ACTION setstatus(uint64_t issuerid, uint64_t seqnum, name status)
+  ACTION setstatus(uint64_t issuerid, uint64_t seqnum, name status, string memo)
   {
     issuerids _ids(_self, 0);
     auto iiditr = _ids.find(issuerid);
@@ -234,7 +247,7 @@ CONTRACT sealregistry : public eosio::contract {
  private:
 
   static inline uint128_t get_seq_key(uint64_t issuerid, uint64_t seq) {
-    return ((uint128_t) issuerid << 64) & ((uint128_t) seq);
+    return ((uint128_t) issuerid << 64) | ((uint128_t) seq);
   }
     
   struct [[eosio::table("issuerids")]] issuerid {
@@ -271,6 +284,7 @@ CONTRACT sealregistry : public eosio::contract {
     uint64_t       id;             /* autoincrement */
     uint64_t       issuerid;  
     uint64_t       workflow;       /* workflow ID assigned by issuer */
+    string         description;
     name           transit;        /* account name of transport company */
     name           recipient;      /* account name of recipient */
     uint64_t       sealscnt;       /* number of seals in the workflow */
@@ -279,7 +293,7 @@ CONTRACT sealregistry : public eosio::contract {
   };
 
   typedef eosio::multi_index<
-    name("workflowes"), workflow,
+    name("workflows"), workflow,
     indexed_by<name("workflow"), const_mem_fun<workflow, uint128_t, &workflow::get_workflow>>
     > workflows;
 
