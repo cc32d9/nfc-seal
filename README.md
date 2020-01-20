@@ -164,8 +164,8 @@ reusable, it can be re-labeled using the password.
 
 
 
-SHA256 hash of the label signature is optionally published on the
-blockchain if tracking is needed.
+SHA256 hash of the 65-byte label signature is optionally published on
+the blockchain if tracking is needed.
 
 
 Usage of NXP NTAG 424 DNA chips

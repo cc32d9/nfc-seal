@@ -1,0 +1,91 @@
+#!/usr/bin/env node
+
+const program           = require('commander');
+const seal              = require('../lib/nfc-seal');
+const ecc               = require('eosjs-ecc');
+
+const { Api, JsonRpc, RpcError } = require('eosjs');
+const { JsSignatureProvider } = require('eosjs/dist/eosjs-jssig');
+const fetch = require('node-fetch');
+const { TextEncoder, TextDecoder } = require('util');
+
+
+program
+    .option('--url [value]', 'EOSIO API URL')
+    .option('--account [value]', 'EOSIO issuer account')
+    .option('--perm [value]', 'issuer permission', 'active')
+    .option('--key [value]', 'EOSIO private key')
+    .option('--contract [value]', 'sealregistry contract account')
+    .option('--workflow [number]', 'workflow number')
+    .option('--expires [value]', 'Seal expiration, days', 365)
+    .option('--loop', 'Continue by increasing sequence number')
+    .parse(process.argv);
+
+if (!program.url || !program.account || !program.key || !program.contract || !program.workflow) {
+    program.help();
+}
+
+
+const sigProvider = new JsSignatureProvider([program.key]);
+const rpc = new JsonRpc(program.url, { fetch });
+const api = new Api({rpc: rpc, signatureProvider: sigProvider,
+                     textDecoder: new TextDecoder(), textEncoder: new TextEncoder()});
+
+seal.nfc_loop(do_read_label, !program.loop);
+
+async function do_read_label(reader, card) {
+    let label = await seal.read_label(reader, card);
+    console.info('Read a label for issuer=' + label.issuerid.toString('hex') +
+                 ', sequece=' + label.seqnum.toString('hex'));
+    
+    await (async () => {
+        try {
+            console.info('Registering label on blockchain... ');
+            const result = await api.transact(
+                {
+                    actions:
+                    [
+                        {
+                            account: program.contract,
+                            name: 'addseal',
+                            authorization: [{
+                                actor: program.account,
+                                permission: program.perm} ],
+                            data: {
+                                issuerid: label.issuerid.readBigUInt64BE(),
+                                seqnum: label.seqnum.readBigUInt64BE(),
+                                sighash: ecc.sha256(label.labelsig, 'hex'),
+                                expires_days: program.expires,
+                                workflow: program.workflow,
+                                status: 'new'
+                            },
+                        }
+                    ]
+                },
+                {
+                    blocksBehind: 10,
+                    expireSeconds: 30
+                }
+            );
+            console.info('transaction_id is : ', result.transaction_id);
+        } catch (e) {
+            console.error('ERROR: ' + e);
+        }
+    })();    
+}
+
+
+
+
+
+
+
+
+
+
+/*
+ Local Variables:
+ mode: javascript
+ indent-tabs-mode: nil
+ End:
+*/
