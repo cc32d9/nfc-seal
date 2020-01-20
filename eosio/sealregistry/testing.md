@@ -73,7 +73,7 @@ tTcleos push action sealtest1111 addseal '[11, 2, "db384f2d658e7e49a9b3c5ae9a356
 tTcleos push action sealtest1111 delwflow '[11, 100]' -p sealissuer11@active
 # error: This workflow has active seals, cannot delete
 
-tTcleos push action sealtest1111 wipeexpired '[10]' -p sealrcpnt111@active
+tTcleos push action sealtest1111 wipeexpired '[10]' -p testuser1113@active
 tTcleos get table sealtest1111 0 seals
 # only one remains in the table
 
@@ -83,7 +83,30 @@ tTcleos push action sealtest1111 delseal '[11, 2, "done"]' -p sealissuer11@activ
 tTcleos push action sealtest1111 delseal '[11, 1, "done"]' -p sealissuer11@active
 # error:  Only recepient can delete the seal
 
+tTcleos push action sealtest1111 setstatus '["sealtest1111", 11, 1, "checkpoint1", "Shipping container 23124134533"]' -p sealtransit1@active
+# error: missing authority of sealtest1111
 
+tTcleos push action sealtest1111 setstatus '["sealissuer11", 12, 1, "sent", "shipped"]' -p sealissuer11@active
+# error: Cannot find the sequence number
+
+tTcleos push action sealtest1111 setstatus '["sealissuer11", 15, 1, "sent", "shipped"]' -p sealissuer11@active
+# error Unknown issuer ID
+
+tTcleos push action sealtest1111 setstatus '["sealissuer11", 11, 1, "sent", "shipped"]' -p sealissuer11@active
+
+tTcleos push action sealtest1111 setstatus '["testuser1113", 11, 1, "sent2", "shipped"]' -p testuser1113@active
+# error: Only issuer, transit or recepient can modify the status
+
+
+tTcleos push action sealtest1111 setstatus '["sealtransit1", 11, 1, "checkpoint1", "Shipping container 23124134533"]' -p sealtransit1@active
+
+tTcleos push action sealtest1111 setstatus '[11, 1, "received", "goods received"]' -p sealrcpnt111@active
+
+tTcleos push action sealtest1111 delseal '[11, 1, "done"]' -p sealrcpnt111@active
+tTcleos get table sealtest1111 0 workflows
+#  "sealscnt": 0
+tTcleos get table sealtest1111 0 seal
+# empty
 
 
 

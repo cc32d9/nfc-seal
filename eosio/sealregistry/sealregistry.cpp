@@ -160,12 +160,15 @@ CONTRACT sealregistry : public eosio::contract {
                                                    microseconds(1000000ll * expires_days * 86400));
                      item.workflow = workflow;
                      item.status = status;
+                     item.updated_by = owner;
+                     item.updated_at = time_point_sec(current_time_point());
                    });
   }
 
   
-  ACTION setstatus(uint64_t issuerid, uint64_t seqnum, name status, string memo)
+  ACTION setstatus(name updated_by, uint64_t issuerid, uint64_t seqnum, name status, string memo)
   {
+    require_auth(updated_by);
     issuerids _ids(_self, 0);
     auto iiditr = _ids.find(issuerid);
     check(iiditr != _ids.end(), "Unknown issuer ID");
@@ -181,13 +184,15 @@ CONTRACT sealregistry : public eosio::contract {
     auto wfitr = wfidx.find(get_seq_key(issuerid, slitr->workflow));
     check(wfitr != wfidx.end(), "This must never happen 1");
 
-    check(has_auth(owner) || has_auth(wfitr->transit) || has_auth(wfitr->recipient),
+    check((updated_by == owner || updated_by == wfitr->transit || updated_by == wfitr->recipient),
           "Only issuer, transit or recepient can modify the status");
 
     check(slitr->status != status, "This seal has already this status");
     
     _seals.modify( *slitr, same_payer, [&]( auto& item ) {
                                          item.status = status;
+                                         item.updated_by = updated_by;
+                                         item.updated_at = time_point_sec(current_time_point());
                                        });
   }
 
@@ -307,6 +312,8 @@ CONTRACT sealregistry : public eosio::contract {
     time_point_sec expires;        /* before expiration date, only the recipient can delete an entry */
     uint64_t       workflow;
     name           status;         /* status field that is modified by issuer, transit and recipient */
+    name           updated_by;     /* account that made latest status update */ 
+    time_point_sec updated_at;     /* tiumestamp of latest update */
     auto primary_key()const { return id; }
     uint128_t get_seq()const { return get_seq_key(issuerid, seqnum); }
     uint64_t get_expires()const { return expires.utc_seconds; }
