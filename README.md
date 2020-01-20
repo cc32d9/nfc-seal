@@ -89,6 +89,8 @@ Protocol
 
 The protocol is applicable to NXP NTAG213/215/216 chips.
 
+64-bit identifiers are stored as big-endian unsigned integers.
+
 The issuer has a secp256k1 or secp256r1 private key for issuing the
 seals.
 
