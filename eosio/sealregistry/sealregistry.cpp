@@ -273,14 +273,12 @@ CONTRACT sealregistry : public eosio::contract {
     uint64_t       seq_end;        /* last sequence number of seals signed with key */
     public_key     pubkey;
     auto primary_key()const { return id; }
-    uint128_t get_seqstart()const { return get_seq_key(issuerid, seq_start); }
     uint128_t get_seqend()const { return get_seq_key(issuerid, seq_end); }
   };
   EOSLIB_SERIALIZE(pubkey, (id)(issuerid)(seq_start)(seq_end)(pubkey));
   
   typedef eosio::multi_index<
     name("pubkeys"), pubkey,
-    indexed_by<name("seqstart"), const_mem_fun<pubkey, uint128_t, &pubkey::get_seqstart>>,
     indexed_by<name("seqend"), const_mem_fun<pubkey, uint128_t, &pubkey::get_seqend>>
     > pubkeys;
   
