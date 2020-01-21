@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+'use strict'
 const program           = require('commander');
 const ecc               = require('eosjs-ecc');
 const seal              = require('../lib/nfc-seal');
@@ -28,8 +29,8 @@ const privkey = ecc.PrivateKey.fromString(program.key);
 seal.nfc_loop(do_write_label, !program.loop);
 
 async function do_write_label(reader, card) {
-    console.info('Writing a label for issuer=' + issuer.toString('hex') +
-                 ', sequece=' + seqnum.toString('hex'));
+    console.info('Writing a label for issuerid=' + label.issuerid.readBigInt64BE().toString(10) +
+                 ' and seqnum=' + label.seqnum.readBigInt64BE().toString(10));
 
     await seal.write_label(reader, card, issuer, seqnum, privkey);
     console.info('Done');

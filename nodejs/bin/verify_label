@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+'use strict'
 const program           = require('commander');
 const ecc               = require('eosjs-ecc');
 const seal              = require('../lib/nfc-seal');
@@ -22,8 +23,8 @@ seal.nfc_loop(do_read_label, !program.loop);
 async function do_read_label(reader, card) {
     let label = await seal.read_label(reader, card);
 
-    console.info('Read a label for issuer=' + label.issuerid.toString('hex') +
-                 ', sequece=' + label.seqnum.toString('hex'));
+    console.info('Read a label for issuerid=' + label.issuerid.readBigInt64BE().toString(10) +
+                 ' and seqnum=' + label.seqnum.readBigInt64BE().toString(10));
     
     if( seal.verify_labelsig(label, pubkey) ) {
         console.log("Signature is RIGHT");

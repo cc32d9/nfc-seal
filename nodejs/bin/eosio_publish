@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
+'use strict'
 const program           = require('commander');
 const seal              = require('../lib/nfc-seal');
 const ecc               = require('eosjs-ecc');
+const shajs             = require('sha.js');
 
 const { Api, JsonRpc, RpcError } = require('eosjs');
 const { JsSignatureProvider } = require('eosjs/dist/eosjs-jssig');
@@ -54,7 +56,7 @@ async function do_read_label(reader, card) {
                             data: {
                                 issuerid: label.issuerid.readBigUInt64BE(),
                                 seqnum: label.seqnum.readBigUInt64BE(),
-                                sighash: ecc.sha256(label.labelsig, 'hex'),
+                                sighash: shajs('sha256').update(label.labelsig).digest('hex'),
                                 expires_days: program.expires,
                                 workflow: program.workflow,
                                 status: 'new'

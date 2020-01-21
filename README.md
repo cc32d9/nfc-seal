@@ -127,7 +127,8 @@ The NFC tag data is compliant with NDEF format, as follows:
     secp256k1, 1 for secp256r1), and the rest is 64 bytes of ECC
     signature.
 
-
+  * 2 bytes of checksum: two first bytes of sha256 hash over the above
+    payload fields.
 
 The label signature is built as follows:
 

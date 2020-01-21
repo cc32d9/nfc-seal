@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
+'use strict'
 const program           = require('commander');
 const seal              = require('../lib/nfc-seal');
 const ecc               = require('eosjs-ecc');
+const shajs             = require('sha.js');
 
 const { Api, JsonRpc, RpcError } = require('eosjs');
 const fetch = require('node-fetch');
@@ -84,7 +86,7 @@ async function do_read_label(reader, card) {
                                       ' and seqnum=' + label.seqnum.readBigInt64BE().toString(10));
                     }
                     else {
-                        let sighash = ecc.sha256(label.labelsig, 'hex');
+                        let sighash = shajs('sha256').update(label.labelsig).digest('hex');
                         if(resp.rows[0].sighash == sighash) {
                             console.log('Seal hash is RIGHT');
                         }

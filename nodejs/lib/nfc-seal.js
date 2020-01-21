@@ -1,6 +1,8 @@
+'use strict'
 const ecc               = require('eosjs-ecc');
 const { NFC }           = require('nfc-pcsc');
 const ndef              = require('@taptrack/ndef');
+const shajs             = require('sha.js');
 
 let myexports = {};
 
@@ -133,7 +135,7 @@ myexports.write_label = async (reader, card, issuerid, seqnum, privkey) => {
     seqnum.copy(id, 8, 0, 8);
 
     let offset = 0;
-    let payload = Buffer.allocUnsafe(8+2+8+8+65);
+    let payload = Buffer.allocUnsafe(8+2+8+8+65+2);
     myexports.projsig.copy(payload, offset, 0, 8);
     offset += 8;
     myexports.formatver.copy(payload, offset, 0, 2);
@@ -143,7 +145,11 @@ myexports.write_label = async (reader, card, issuerid, seqnum, privkey) => {
     seqnum.copy(payload, offset, 0, 8);
     offset += 8;
     labelsig.copy(payload, offset, 0, 65);
-
+    offset += 65;
+    
+    let chksum = shajs('sha256').update(payload.subarray(0, offset)).digest();
+    chksum.copy(payload, offset, 0, 2);    
+    
     // console.log('Writing ' + payload.length + ' bytes of payload');    
     let record = new ndef.Record(false,
                                 ndef.Record.TNF_UNKNOWN,
@@ -216,6 +222,14 @@ myexports.read_label = async (reader, card) => {
             
             let labelsig = Buffer.allocUnsafe(65);
             payload.copy(labelsig, 0, offset, offset+65);
+            offset += 65;
+
+            let chksum = shajs('sha256').update(payload.subarray(0, offset)).digest();
+            if( !payload.subarray(offset, offset+2).equals(chksum.subarray(0, 2)) ) {
+                console.error('Cecksum on chip: ' + payload.subarray(offset, offset+2).toString('hex') +
+                              ', should be: ' + chksum.subarray(0, 2).toString('hex'));
+                reject('Incorrect label checksum');
+            }
             
             resolve({
                 'seed': myexports.read_seed(reader, card, issuerid, seqnum),
