@@ -16,22 +16,17 @@ tTcleos get table sealtest1111 0 issuerids
 tTcleos push action sealtest1111 addiid '["sealissuer11", 12]' -p sealissuer11@active
 
 
-tTcleos push action sealtest1111 addkey '[11, 0, 99, "EOS4x2xG59GxFK2NbyPnFnZ7EvA9w8Thib9ruh8VZPzvZby1TRUyA"]' -p sealissuer11@active
+tTcleos push action sealtest1111 addkey '[11, 500, "EOS4x2xG59GxFK2NbyPnFnZ7EvA9w8Thib9ruh8VZPzvZby1TRUyA"]' -p sealissuer11@active
 # success
 tTcleos get table sealtest1111 0 pubkeys
+# repeat, error: This public key is already present
 
-# repeat 0-99, error: Overlapping intervals
-# 99-0, error: start number should not be greater than end
-# 99-199, error: Overlapping intervals
-# 110-199, success
-# 100-110, error: Overlapping intervals
-# 100-109, success
+tTcleos push action sealtest1111 addkey '[12, 500, "EOS4x2xG59GxFK2NbyPnFnZ7EvA9w8Thib9ruh8VZPzvZby1TRUyA"]' -p sealissuer11@active
+# error: This public key is already present
 
-tTcleos -v push action sealtest1111 addkey '[12, 0, 199, "EOS4x2xG59GxFK2NbyPnFnZ7EvA9w8Thib9ruh8VZPzvZby1TRUyA"]' -p sealissuer11@active
-
-tTcleos -v push action sealtest1111 addkey '[12, 300, 399, "EOS4x2xG59GxFK2NbyPnFnZ7EvA9w8Thib9ruh8VZPzvZby1TRUyA"]' -p sealissuer11@active
-
-tTcleos push action sealtest1111 addkey '[11, 200, 399, "EOS4x2xG59GxFK2NbyPnFnZ7EvA9w8Thib9ruh8VZPzvZby1TRUyA"]' -p sealissuer11@active
+tTcleos push action sealtest1111 addkey '[11, 500, "EOS8ZatzZCb9EpPXrmtQ74XK2kn4UFhqV91ZTTmkWmTZJ8QBKBo4u"]' -p sealissuer11@active
+tTcleos get table sealtest1111 0 pubkeys
+# two intervals, 0-499. 500-999
 
 
 

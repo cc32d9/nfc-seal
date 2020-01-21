@@ -41,9 +41,9 @@ CONTRACT sealregistry : public eosio::contract {
                         });
   }
 
-  ACTION addkey(uint64_t issuerid, uint64_t seq_start, uint64_t seq_end, public_key pubkey)
+  ACTION addkey(uint64_t issuerid, uint64_t max_seals, public_key pubkey)
   {
-    check(seq_start <= seq_end, "start number should not be greater than end");
+    check(max_seals > 0, "max_seals must be a positive number");
     issuerids _ids(_self, 0);
     auto iiditr = _ids.find(issuerid);
     check(iiditr != _ids.end(), "Unknown issuer ID");
@@ -51,14 +51,27 @@ CONTRACT sealregistry : public eosio::contract {
     require_auth(owner);
 
     pubkeys _pubkeys(_self, 0);
+
+    /* check pubkey uniqueness */
+    auto keyidx = _pubkeys.get_index<name("keychk")>();
+    check(keyidx.find(pubkey_ckecksum(pubkey)) == keyidx.end(),
+          "This public key is already present");
     
-    /* search for an overlapping interval */    
+    uint64_t seq_start;
+    
+    /* add a new interval after the last one */    
     auto endidx = _pubkeys.get_index<name("seqend")>();
-    auto enditr = endidx.lower_bound(get_seq_key(issuerid, seq_start));
-    if( enditr != endidx.end() && enditr->issuerid == issuerid ) {
-      check(enditr->seq_start > seq_end, "Overlapping intervals");
+    if( endidx.begin() == endidx.end() ) {
+      seq_start = 0;
+    }
+    else {
+      auto enditr = endidx.end();
+      enditr--;
+      seq_start = enditr->seq_end + 1;
     }
 
+    uint64_t seq_end = seq_start + max_seals - 1;
+    
     _pubkeys.emplace(owner, [&]( auto& item ) {
                               item.id = _pubkeys.available_primary_key();
                               item.issuerid = issuerid;
@@ -288,7 +301,11 @@ CONTRACT sealregistry : public eosio::contract {
   static inline uint128_t get_seq_key(uint64_t issuerid, uint64_t seq) {
     return ((uint128_t) issuerid << 64) | ((uint128_t) seq);
   }
-    
+
+  static inline checksum256 pubkey_ckecksum(const public_key& pubkey) {
+    return sha256((char*)&pubkey, 33);
+  }
+  
   struct [[eosio::table("issuerids")]] issuerid {
     uint64_t       id;             /* unique ID assigned by issuer */
     name           owner;
@@ -311,12 +328,14 @@ CONTRACT sealregistry : public eosio::contract {
     string         revoke_reason;
     auto primary_key()const { return id; }
     uint128_t get_seqend()const { return get_seq_key(issuerid, seq_end); }
+    checksum256 get_keychk() const { return pubkey_ckecksum(pubkey); }
   };
   EOSLIB_SERIALIZE(pubkey, (id)(issuerid)(seq_start)(seq_end)(pubkey)(revoked)(revoked_at)(revoke_reason));
   
   typedef eosio::multi_index<
     name("pubkeys"), pubkey,
-    indexed_by<name("seqend"), const_mem_fun<pubkey, uint128_t, &pubkey::get_seqend>>
+    indexed_by<name("seqend"), const_mem_fun<pubkey, uint128_t, &pubkey::get_seqend>>,
+    indexed_by<name("keychk"), const_mem_fun<pubkey, checksum256, &pubkey::get_keychk>>
     > pubkeys;
   
   
