@@ -18,8 +18,8 @@ if (!program.issuer || !program.key) {
 }
 
 
-const issuer = Buffer.allocUnsafe(8);
-issuer.writeBigUInt64BE(BigInt(program.issuer));
+const issuerid = Buffer.allocUnsafe(8);
+issuerid.writeBigUInt64BE(BigInt(program.issuer));
 
 const seqnum = Buffer.allocUnsafe(8);
 seqnum.writeBigUInt64BE(BigInt(program.seq));
@@ -29,10 +29,10 @@ const privkey = ecc.PrivateKey.fromString(program.key);
 seal.nfc_loop(do_write_label, !program.loop);
 
 async function do_write_label(reader, card) {
-    console.info('Writing a label for issuerid=' + label.issuerid.readBigInt64BE().toString(10) +
-                 ' and seqnum=' + label.seqnum.readBigInt64BE().toString(10));
+    console.info('Writing a label for issuerid=' + issuerid.readBigInt64BE().toString(10) +
+                 ' and seqnum=' + seqnum.readBigInt64BE().toString(10));
 
-    await seal.write_label(reader, card, issuer, seqnum, privkey);
+    await seal.write_label(reader, card, issuerid, seqnum, privkey);
     console.info('Done');
     
     if( program.loop ) {
