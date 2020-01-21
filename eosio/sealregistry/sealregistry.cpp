@@ -65,9 +65,34 @@ CONTRACT sealregistry : public eosio::contract {
                               item.seq_start = seq_start;
                               item.seq_end = seq_end;
                               item.pubkey = pubkey;
+                              item.revoked = false;
+                              item.revoked_at.utc_seconds = 0;
+                              item.revoke_reason = "";
                             });
   }
 
+
+  ACTION revokekey(uint64_t issuerid, uint64_t seqnum, string reason)
+  {
+    issuerids _ids(_self, 0);
+    auto iiditr = _ids.find(issuerid);
+    check(iiditr != _ids.end(), "Unknown issuer ID");
+    name owner = iiditr->owner;
+    require_auth(owner);
+
+    pubkeys _pubkeys(_self, 0);
+    /* search for a matching interval */    
+    auto endidx = _pubkeys.get_index<name("seqend")>();
+    auto enditr = endidx.lower_bound(get_seq_key(issuerid, seqnum));
+    check( enditr != endidx.end() && enditr->issuerid == issuerid && enditr->seq_start <= seqnum,
+           "Cannot find matching public key");
+    _pubkeys.modify( *enditr, same_payer, [&]( auto& item ) {
+                                            item.revoked = true;
+                                            item.revoked_at = time_point_sec(current_time_point());
+                                            item.revoke_reason = reason;
+                                          });
+  }
+  
   
   ACTION wipekeys()
   {
@@ -145,6 +170,15 @@ CONTRACT sealregistry : public eosio::contract {
     auto slidx = _seals.get_index<name("seq")>();
     check(slidx.find(get_seq_key(issuerid, seqnum)) == slidx.end(),
           "Duplicate sequence number");
+
+    pubkeys _pubkeys(_self, 0);
+    /* search for a matching interval */    
+    auto endidx = _pubkeys.get_index<name("seqend")>();
+    auto enditr = endidx.lower_bound(get_seq_key(issuerid, seqnum));
+    check( enditr != endidx.end() && enditr->issuerid == issuerid && enditr->seq_start <= seqnum,
+           "Cannot find matching public key");
+
+    check(!enditr->revoked, "The matching public key is revoked");
     
     _workflows.modify( *wfitr, same_payer, [&]( auto& item ) {
                                              item.sealscnt++;
@@ -272,10 +306,13 @@ CONTRACT sealregistry : public eosio::contract {
     uint64_t       seq_start;      /* first sequence number of seals signed with key */
     uint64_t       seq_end;        /* last sequence number of seals signed with key */
     public_key     pubkey;
+    bool           revoked;
+    time_point_sec revoked_at;     /* timestamp of key invalidation */
+    string         revoke_reason;
     auto primary_key()const { return id; }
     uint128_t get_seqend()const { return get_seq_key(issuerid, seq_end); }
   };
-  EOSLIB_SERIALIZE(pubkey, (id)(issuerid)(seq_start)(seq_end)(pubkey));
+  EOSLIB_SERIALIZE(pubkey, (id)(issuerid)(seq_start)(seq_end)(pubkey)(revoked)(revoked_at)(revoke_reason));
   
   typedef eosio::multi_index<
     name("pubkeys"), pubkey,

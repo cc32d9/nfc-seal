@@ -54,6 +54,13 @@ async function do_read_label(reader, card) {
             else {
                 let pubkey = resp.rows[0].pubkey;
                 console.log('Found public key on blockchain: ' + pubkey);
+
+                if( resp.rows[0].revoked != 0 ) {
+                    console.error('ATTENTION: the public key is revoked by issuer on ' +
+                                  resp.rows[0].revoked_at + ', reason: ' +
+                                  resp.rows[0].revoke_reason);
+                }
+                
                 if( seal.verify_labelsig(label, pubkey) ) {
                     console.log("Signature is RIGHT");
                     console.log("Looking up signature hash on blockchain...");
