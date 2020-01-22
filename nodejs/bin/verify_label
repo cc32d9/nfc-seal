@@ -4,6 +4,7 @@
 const program           = require('commander');
 const ecc               = require('eosjs-ecc');
 const seal              = require('../lib/nfc-seal');
+const shajs             = require('sha.js');
 
 
 program
@@ -27,7 +28,7 @@ async function do_read_label(reader, card) {
                  ' and seqnum=' + label.seqnum.readBigInt64BE().toString(10));
     
     if( seal.verify_labelsig(label, pubkey) ) {
-        console.log("Signature is RIGHT");
+        console.log('Signature is RIGHT. sighash=' + shajs('sha256').update(label.labelsig).digest('hex'));
     }
     else {
         console.log("Signature is WRONG");

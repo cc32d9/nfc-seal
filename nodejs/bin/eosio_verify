@@ -88,7 +88,7 @@ async function do_read_label(reader, card) {
                     else {
                         let sighash = shajs('sha256').update(label.labelsig).digest('hex');
                         if(resp.rows[0].sighash == sighash) {
-                            console.log('Seal hash is RIGHT');
+                            console.log('Seal hash is RIGHT. sighash=' + sighash);
                         }
                         else {
                             console.error('Seal hash is WRONG: on blockahin: ' + resp.rows[0].sighash +

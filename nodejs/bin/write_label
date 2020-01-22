@@ -4,6 +4,7 @@
 const program           = require('commander');
 const ecc               = require('eosjs-ecc');
 const seal              = require('../lib/nfc-seal');
+const shajs             = require('sha.js');
 
 
 program
@@ -32,8 +33,8 @@ async function do_write_label(reader, card) {
     console.info('Writing a label for issuerid=' + issuerid.readBigInt64BE().toString(10) +
                  ' and seqnum=' + seqnum.readBigInt64BE().toString(10));
 
-    await seal.write_label(reader, card, issuerid, seqnum, privkey);
-    console.info('Done');
+    let labelsig = await seal.write_label(reader, card, issuerid, seqnum, privkey);
+    console.info('Done. sighash=' + shajs('sha256').update(labelsig).digest('hex'));
     
     if( program.loop ) {
         let s = seqnum.readBigInt64BE();
