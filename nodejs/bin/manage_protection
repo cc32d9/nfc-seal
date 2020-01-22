@@ -1,0 +1,73 @@
+#!/usr/bin/env node
+
+'use strict'
+const program           = require('commander');
+const seal              = require('../lib/nfc-seal');
+
+
+program
+    .option('--pass [value]', 'Write protection passphrase')
+    .option('--protect', 'Protect the label from writing')
+    .option('--erase', 'Erase the label')
+    .option('--loop', 'Run continuously')
+    .parse(process.argv);
+
+if (!program.pass || (!program.protect && !program.erase)) {
+    program.help();
+}
+
+
+if( program.protect ) {
+    seal.nfc_loop(do_protect_label, !program.loop);
+}
+else if( program.erase ) {
+    seal.nfc_loop(do_erase_label, !program.loop);
+}
+    
+
+async function do_protect_label(reader, card) {
+    let label = await seal.read_label(reader, card);
+    if( label ) {
+        console.info('Protecting a label for issuerid=' + label.issuerid.readBigInt64BE().toString(10) +
+                     ' and seqnum=' + label.seqnum.readBigInt64BE().toString(10));
+        
+        if( await seal.protect_label(reader, card, program.pass) ) {
+            console.log("Done");
+        }
+    }
+    else {
+        console.error('Could not read the label');
+    }
+}
+
+
+
+async function do_erase_label(reader, card) {
+    let label = await seal.read_label(reader, card);
+    if( label ) {
+        console.info('ERASING a label for issuerid=' + label.issuerid.readBigInt64BE().toString(10) +
+                     ' and seqnum=' + label.seqnum.readBigInt64BE().toString(10));
+        
+        if( await seal.erase_label(reader, card, program.pass) ) {
+            console.log("Done");
+        }
+    }
+    else {
+        console.error('Could not read the label');
+    }
+}
+
+
+
+
+
+
+
+
+
+/*
+ Local Variables:
+ mode: javascript
+ indent-tabs-mode: nil
+ End:
+*/

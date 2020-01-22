@@ -183,63 +183,66 @@ myexports.write_label = async (reader, card, issuerid, seqnum, privkey) => {
 
 
 myexports.read_label = async (reader, card) => {
-    return new Promise(function(resolve, reject) {
-        reader.read(4, 144).then(function(rawdata) {
-            if( rawdata.readUInt8(0) != 0x03 ) {
-                reject('Unexpected type in TLV: ' + rawdata.readUInt8(0));
-            }
-            
-            let msglen = rawdata.readUInt8(1);
-            if( rawdata.readUInt8(2+msglen) != 0xFE ) {
-                reject('Missing TLV terminator');
-            }
-            
-            let message = ndef.Message.fromBytes(Buffer.from(rawdata, 2, msglen));
-            let record = message.getRecords()[0];
-            let payload = Buffer.from(record.payload);
-            // console.log('Read ' + payload.length + ' bytes of payload');
-            let offset = 0;
-            
-            let ps = payload.subarray(offset, offset+8);
-            offset += 8;
-            if( !ps.equals(myexports.projsig) ) {
-                reject('Wrong project signature: ' + ps.toString('hex'));
-            }
-            
-            let fv = payload.subarray(offset, offset+2);
-            offset += 2;
-            if( !fv.equals(myexports.formatver) ) {
-                reject('Wrong format version: ' + fv.toString('hex'));
-            }
-            
-            let issuerid = Buffer.allocUnsafe(8);
-            payload.copy(issuerid, 0, offset, offset+8);
-            offset += 8;
-            
-            let seqnum = Buffer.allocUnsafe(8);
-            payload.copy(seqnum, 0, offset, offset+8);
-            offset += 8;
-            
-            let labelsig = Buffer.allocUnsafe(65);
-            payload.copy(labelsig, 0, offset, offset+65);
-            offset += 65;
-
-            let chksum = shajs('sha256').update(payload.subarray(0, offset)).digest();
-            if( !payload.subarray(offset, offset+2).equals(chksum.subarray(0, 2)) ) {
-                console.error('Cecksum on chip: ' + payload.subarray(offset, offset+2).toString('hex') +
-                              ', should be: ' + chksum.subarray(0, 2).toString('hex'));
-                reject('Incorrect label checksum');
-            }
-            
-            resolve({
-                'seed': myexports.read_seed(reader, card, issuerid, seqnum),
+    try {
+        let rawdata = await reader.read(4, 144);
+        if( rawdata.readUInt8(0) != 0x03 ) {
+            throw('Unexpected type in TLV: ' + rawdata.readUInt8(0));
+        }
+        
+        let msglen = rawdata.readUInt8(1);
+        if( rawdata.readUInt8(2+msglen) != 0xFE ) {
+            throw('Missing TLV terminator');
+        }
+        
+        let message = ndef.Message.fromBytes(Buffer.from(rawdata, 2, msglen));
+        let record = message.getRecords()[0];
+        let payload = Buffer.from(record.payload);
+        // console.log('Read ' + payload.length + ' bytes of payload');
+        let offset = 0;
+        
+        let ps = payload.subarray(offset, offset+8);
+        offset += 8;
+        if( !ps.equals(myexports.projsig) ) {
+            throw('Wrong project signature: ' + ps.toString('hex'));
+        }
+        
+        let fv = payload.subarray(offset, offset+2);
+        offset += 2;
+        if( !fv.equals(myexports.formatver) ) {
+            throw('Wrong format version: ' + fv.toString('hex'));
+        }
+        
+        let issuerid = Buffer.allocUnsafe(8);
+        payload.copy(issuerid, 0, offset, offset+8);
+        offset += 8;
+        
+        let seqnum = Buffer.allocUnsafe(8);
+        payload.copy(seqnum, 0, offset, offset+8);
+        offset += 8;
+        
+        let labelsig = Buffer.allocUnsafe(65);
+        payload.copy(labelsig, 0, offset, offset+65);
+        offset += 65;
+        
+        let chksum = shajs('sha256').update(payload.subarray(0, offset)).digest();
+        if( !payload.subarray(offset, offset+2).equals(chksum.subarray(0, 2)) ) {
+            console.error('Cecksum on chip: ' + payload.subarray(offset, offset+2).toString('hex') +
+                          ', should be: ' + chksum.subarray(0, 2).toString('hex'));
+            throw('Incorrect label checksum');
+        }
+        
+        return {'seed': myexports.read_seed(reader, card, issuerid, seqnum),
                 'issuerid': issuerid,
                 'seqnum': seqnum,
                 'labelsig': labelsig
-            });
-        });
-    });
-};
+               };
+    }
+    catch(e) {
+        console.error(e);
+        return;
+    }
+}
+
 
 
 
@@ -248,14 +251,106 @@ myexports.verify_labelsig = (label, pubkey) => {
     return(sig.verify(label.seed, pubkey));
 }
     
+
+//      // Configuration page 1
+//      config[0]
+//      config[1]
+//      config[2]
+//      config[3] // AUTH0 (default: 0xff)
+//
+//      // Configuration page 2
+//      config[4] // ACCESS
+//      config[5] // VCTID (default: 0x05)
+//      config[6]
+//      config[7]
+
+
     
+myexports.protect_label = async (reader, card, passphrase) => {
+    try {
+        // read current configuration
+        let config = await reader.read(card.cap.configOffset, 8);
+        if( config[3] != 0xFF ) {
+            throw('The tag is already password-protected');
+        }
+        
+        let pwhash = shajs('sha256')
+            .update(passphrase)
+            .update(Buffer.from(card.uid, 'hex'))
+            .digest();
+        
+        // set the PASSWORD (4 bytes)
+        await reader.write(card.cap.passwordOffset, pwhash.subarray(0,4));
+        
+        // set PACK (2 bytes)
+        let packframe = Buffer.allocUnsafe(4).fill(0);
+        pwhash.subarray(4,6).copy(packframe);
+        await reader.write(card.cap.packOffset, packframe);
+        
+        // Protect everything (start with block 4)
+        config[3] = 0x04;
+        
+        // set ACCESS bits
+        // bit 7: PROT One bit inside the ACCESS byte defining the memory protection
+        //          0b ... write access is protected by the password verification
+        //          1b ... read and write access is protected by the password verification
+        // bit 6: CFGLCK Write locking bit for the user configuration
+        //        - 0b ... user configuration open to write access
+        //        - 1b ... user configuration permanently locked against write access
+        // bits 5-3: reserved
+        // bits 2-0: AUTHLIM
+        // bit number-76543210
+        //            ||||||||
+        config[4] = 0b00000000;
     
-    
-    
+        // set access rules
+        await reader.write(card.cap.configOffset, config);
+        return true;
+    }
+    catch(e) {
+        console.error(e);
+        return false;
+    }
+}    
+
+
+                      
+myexports.erase_label = async (reader, card, passphrase) => {
+    try {
+        // read current configuration
+        const config = await reader.read(card.cap.configOffset, 8);
+        if( config[3] != 0xFF ) {
+            console.log('The card is protected. Authenticating');
+            let pwhash = shajs('sha256')
+                .update(passphrase)
+                .update(Buffer.from(card.uid, 'hex'))
+                .digest();
+            
+            await myexports.card_auth(reader, card, {password: pwhash.subarray(0,4),
+                                                     pack: pwhash.subarray(4,6)});
+            
+            // Unprotect everything
+            config[3] = 0xFF;
+            config[4] = 0b00000000;
+            
+            // set access rules
+            await reader.write(card.cap.configOffset, config);
+        }
+        
+        console.log('Erasing contents');
+        let erasebuf = Buffer.allocUnsafe(144).fill(0);
+        await reader.write(4, erasebuf);
+        return true;
+    }
+    catch(e) {
+        console.error(e);
+        return false;
+    }
+};
 
     
 
-myexports.auth = async (reader, card, pw) => {
+myexports.card_auth = async (reader, card, pw) => {
     // CMD: PWD_AUTH via Direct Transmit (ACR122U) and Data Exchange (PN533)
     const authcmd = Buffer.from([
 	0xff, // Class
@@ -271,24 +366,21 @@ myexports.auth = async (reader, card, pw) => {
     ]);
     
     const response = await reader.transmit(authcmd, 7);
-
+    
     if (response.length < 5) {
-	console.error(`Invalid response length ${response.length}. Expected minimal length was 2 bytes.`)
-        return false;
+	throw('Cannot authenticate: invalid response length');
     }
-
+    
     if (response[2] !== 0x00 || response.length < 7) {
-	console.error(`Authentication failed.`);
-        return false;
+	throw('Authentication failed');
     }
-
     if (!response.slice(3, 5).equals(pw.pack)) {
-        console.error(`Pack mismatch`);
-        return false;
+        throw('PACK mismatch. Expected: ' + pw.pack.toString('hex') +
+              ', received: ' + response.slice(3, 5).toString('hex'));
     }
+}
 
-    return true;
-};
+        
 
 
 module.exports = myexports;

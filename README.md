@@ -143,25 +143,12 @@ The label signature is built as follows:
 * on all of the above concatenated, sha256 hash is signed by issuer's key.
 
 
-The memory is protected from writing with a 4-byte password. There are
-several options, depending on usage of the chip. If a chip is
-reusable, it can be re-labeled using the password.
-
-* If it's a single-use chip, such as a physical seal that gets
-  destroyed after opening, the password is taken as a random number,
-  and immediately discarded.
-
-
-* If the private key for signing the chips is available in raw form,
-  the label signature is concatenated with the first 4 bytes of the
-  private key, hashed with sha256, and the first 4 bytes of resulting
-  hash are the password for write protection.
-
-* If the private key is stored on a hardwarre wallet, it's impossible
-  to retrieve in raw form, so the password is derived from a
-  predefined passphrase, concatenated with the label signature, hashed
-  with sha256, and the first 4 bytes of the hash are taken as a
-  password.
+The memory is protected from writing with a 4-byte password, as
+follows. The 7-byte chip UID is added at the end of the issuer's
+passphrase. A resulting bytes array is hashed by SHA256. First 4 bytes
+of the hash are used as the password, and 2 following bytes are used
+as PACK for authentication validation. This allows the issuer to erase
+the label and re-write the chip if needed.
 
 
 
