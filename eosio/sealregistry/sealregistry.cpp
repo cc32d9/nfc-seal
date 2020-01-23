@@ -59,15 +59,32 @@ CONTRACT sealregistry : public eosio::contract {
     
     uint64_t seq_start;
     
-    /* add a new interval after the last one */    
+    /* add a new interval after the last one */
     auto endidx = _pubkeys.get_index<name("seqend")>();
     if( endidx.begin() == endidx.end() ) {
       seq_start = 0;
     }
     else {
-      auto enditr = endidx.end();
-      enditr--;
-      seq_start = enditr->seq_end + 1;
+      if( issuerid == 0xFFFFFFFFFFFFFFFF ) {
+        auto enditr = endidx.end();
+        enditr--;
+        if( enditr->issuerid == issuerid ) {
+          seq_start = enditr->seq_end + 1;
+        }
+        else {
+          seq_start = 0;
+        }
+      }
+      else {
+        auto enditr = endidx.lower_bound(get_seq_key(issuerid+1, 0));
+        enditr--;
+        if( enditr != endidx.end() && enditr->issuerid == issuerid ) {
+          seq_start = enditr->seq_end + 1;
+        }
+        else {
+          seq_start = 0;
+        }
+      }
     }
 
     uint64_t seq_end = seq_start + max_seals - 1;

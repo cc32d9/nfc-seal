@@ -1,5 +1,5 @@
 ```
-alias tTcleos='cleos -u http://testnet.eossweden.eu'
+alias tTcleos='cleos -u https://testnet-telos-21zephyr.maltablock.org'
 
 tTcleos system buyram sealtest1111 sealtest1111 -k 400
 
