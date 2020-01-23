@@ -80,7 +80,9 @@ async function do_read_label(reader, card) {
                         show_payer: false
                     });
 
-                    if( resp.rows.length == 0 ) {
+                    if( resp.rows.length == 0 ||
+                        BigInt(resp.rows[0].issuerid) != label.issuerid.readBigInt64BE() ||
+                        BigInt(resp.rows[0].seqnum) != label.seqnum.readBigInt64BE() ) {
                         console.error('Cannot find a seal on blockchain for ' +
                                       'issuerid=' + label.issuerid.readBigInt64BE().toString(10) +
                                       ' and seqnum=' + label.seqnum.readBigInt64BE().toString(10));
