@@ -95,7 +95,7 @@ tTcleos push action sealtest1111 setstatus '["testuser1113", 11, 1, "sent2", "sh
 
 tTcleos push action sealtest1111 setstatus '["sealtransit1", 11, 1, "checkpoint1", "Shipping container 23124134533"]' -p sealtransit1@active
 
-tTcleos push action sealtest1111 setstatus '[11, 1, "received", "goods received"]' -p sealrcpnt111@active
+tTcleos push action sealtest1111 setstatus '["sealrcpnt111", 11, 1, "received", "goods received"]' -p sealrcpnt111@active
 
 tTcleos push action sealtest1111 delseal '[11, 1, "done"]' -p sealrcpnt111@active
 tTcleos get table sealtest1111 0 workflows

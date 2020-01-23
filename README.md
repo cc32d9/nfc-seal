@@ -184,6 +184,180 @@ Read the chip contents, read the public key from the blockchain,
 validate the signature.
 
 
+Reference implementation and demo
+---------------------------------
+
+The project repository contains a fully functional demo that can be
+used as a reference for validating third-party software for
+compatibility.
+
+The tools require a physical Ubuntu computer with an USB interface
+where you attach an NFC reader (tested only with ACR122U, available on
+AliExpress for about $25). Ubuntu 18.04 and 19.10 has been tested, and
+it should work on future releases too.
+
+The smart contract for registering the seals and public keys on the
+blockchain is deployed on Telos testnet under `sealtest1111`
+account. You may use it for your own tests, or deploy the contract in
+a new account.
+
+In the example below, the following accounts have been created:
+`sealissuer11` for the issuing party, `sealtransit1` for the
+transportation company, and `sealrcpnt111` as the recipient of the
+goods.
+
+All private keys are cut off in this demo.
+
+The seal writing command uses the signer's private key directly in the
+command line argument. This is not safe for production, but OK for
+demo and testing purposes.In production environment, the client
+software should take care of secure key management.
+
+```
+# install eosio software (we only need cleos from it)
+
+cd /tmp
+wget https://github.com/EOSIO/eos/releases/download/v2.0.0/eosio_2.0.0-1-ubuntu-18.04_amd64.deb
+sudo apt install ./eosio_2.0.0-1-ubuntu-18.04_amd64.deb
+
+# install nodejs 12.x
+curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# additional packages
+sudo apt-get install -y git libpcsclite1 libpcsclite-dev pcscd make gcc g++
+
+# fix NFC driver compatibility issues
+sudo -i
+cat >/etc/modprobe.d/rfid-blacklist.conf <<'EOT'
+blacklist pn533_usb
+blacklist pn533
+blacklist nfc
+EOT
+
+reboot
+
+
+
+
+# get a copy of the project in your home directory, or choose your preferred path
+cd
+git clone https://github.com/cc32d9/nfc-seal.git
+cd nfc-seal/nodejs/
+# this command will end with an error, but the update command will fix it
+npm install
+npm update
+
+# You need to create your own accounts using testnet faucet:
+# https://app.telos.net/testnet/developers
+# Further instructions assume the user accounts
+# sealissuer11, sealtransit1, sealrcpnt111, but you need
+# to create your own.
+
+# create private keys for each account and one more for the seal
+# signing. Save them in a safe place.
+
+cleos create key --to-console
+
+# this command will create a wallet file in "eosio-wallet" folder in
+# your home directory. It generates an encryption password that you
+# need to save in a safe place.
+
+cleos wallet create -n sealtest --to-console
+
+# try to lock it and unlock with the password that you saved:
+
+cleos wallet lock -n sealtest
+cleos wallet unlock -n sealtest --password PW5K3xxxxxx
+
+# import private keys of your 3 accounts into the wallet:
+
+cleos wallet import -n sealtest
+
+# create an alias for the testnet API endpoint:
+
+alias tTcleos='cleos -u https://testnet-telos-21zephyr.maltablock.org'
+
+# you need to pick an issuerid number that is not used yet. This will
+# show all userid numbers used by the smart contract:
+
+tTcleos get table sealtest1111 0 issuerids
+
+# in this example, we use issuerid=100
+
+tTcleos push action sealtest1111 addiid '["sealissuer11", 100]' -p sealissuer11@active
+
+# you need to create one or several workflows. A workflow defines the
+# transport company account and the recipient, and gives a short
+# explanation of the delivery. Here we add a workflow number 55:
+
+tTcleos push action sealtest1111 addwflow '[100, 55, "Alice ships potatos to Bob", "sealtransit1", "sealrcpnt111"]' -p sealissuer11@active
+
+# this will register the public key that the issuer will use for
+# signing the labels. This is one of the keys you created and saved
+# using "cleos create key" command.  This will allow us sign up to
+# 10000 unique seals with our signing key.  If you need to sign more,
+# you will need to generate a new key. The number 10000 is not strict,
+# it should be a reasonable number to cover your normal production
+# workflow for a year or longer.
+
+tTcleos push action sealtest1111 addkey '[100, 10000, "EOS7SiRqonkPhqrEshkVSTSJuCnedppwxTSVq1RdXyAFB1zLhu6kh"]' -p sealissuer11@active
+
+# In the commands below, --loop option makes the program wait for more
+# seals to process. Without the --loop option, the program exists
+# after processing one NFC chip.
+
+# Attach the USB NFC reader to the computer and get the NFC chips
+# ready. This command will start writing the seals in a loop, until
+# stopped, with sequence numbers starting from 10. It's up to you to
+# keep track of numbers and to make sure they are not reused. In
+# production, the client software should take care of number
+# management for your labels.
+
+~/nfc-seal/nodejs/bin/write_label --issuer=100 --seq=10 --key=5xxxTHEPRIVATEKEYxxxxxxx --loop
+
+# Protect the seals from overwriting. Choose a secure and long enough
+#  passphrase and store it safely.
+
+~/nfc-seal/nodejs/bin/manage_protection --pass 1r84r89fhkrhcew7cyweyvwr784cyvewrc --protect --loop
+
+
+# Now we can optionally register the seals on blockchain. By doing so,
+# we prevent repeating sequence numbers. It is also possible to verify
+# the seals without registering each on the blockchain. By default,
+# seals have 1 year expiration time, and this can be changed by
+# specifying --expires option and number of days after which the seal
+# becomes invalid
+
+~/nfc-seal/nodejs/bin/eosio_publish --url=https://testnet-telos-21zephyr.maltablock.org \
+ --account=sealissuer11 --key=5xxxx_PRIVATEKEY_OF_sealissuer11 --contract=sealtest1111 \
+ --workflow=55 --loop
+
+# Now anyone along the transition path of the seal can validate its
+# authenticity. If the seal is registered on the blockchain, its hash
+# is verified. otherwise, only the validity of on-chip signature is
+# verified:
+
+~/nfc-seal/nodejs/bin/eosio_verify --url=https://testnet-telos-21zephyr.maltablock.org --contract=sealtest1111 --loop
+
+# issuer, transit company, and the recipient can modify the status of the seal"
+
+tTcleos push action sealtest1111 setstatus '["sealtransit1", 100, 10, "checkpoint1", "Shipping container 23124134533"]' -p sealtransit1@active
+
+tTcleos push action sealtest1111 setstatus '["sealrcpnt111", 100, 10, "received", "goods received"]' -p sealrcpnt111@active
+
+# Receiver can wipe out the seal from the blockchain if it's no longer in use:
+
+tTcleos push action sealtest1111 delseal '[100, 10, "done"]' -p sealrcpnt111@active
+
+# issuer can delete a workflow if it dosn't contain any seals:
+
+tTcleos push action sealtest1111 delwflow '[100, 55]' -p sealissuer11@active
+
+```
+
+
+
 
 License and copyright
 ---------------------
