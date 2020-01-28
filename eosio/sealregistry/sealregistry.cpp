@@ -146,7 +146,7 @@ CONTRACT sealregistry : public eosio::contract {
 
     check(is_account(transit), "transit account does not exist");
     check(is_account(recipient), "recipient account does not exist");
-
+    
     workflows _workflows(_self, 0);
     auto wfidx = _workflows.get_index<name("workflow")>();
     check(wfidx.find(get_seq_key(issuerid, workflow)) == wfidx.end(),
@@ -161,6 +161,8 @@ CONTRACT sealregistry : public eosio::contract {
                                 item.recipient = recipient;
                                 item.sealscnt = 0;
                               });
+
+    notify(owner, owner, transit, recipient);
   }
 
   
@@ -177,6 +179,8 @@ CONTRACT sealregistry : public eosio::contract {
     auto wfitr = wfidx.find(get_seq_key(issuerid, workflow));
     check(wfitr != wfidx.end(), "Cannot find workflow ID");
     check(wfitr->sealscnt == 0, "This workflow has active seals, cannot delete");
+
+    notify(owner, owner, wfitr->transit, wfitr->recipient);
     wfidx.erase(wfitr);
   }
 
@@ -227,6 +231,8 @@ CONTRACT sealregistry : public eosio::contract {
                      item.updated_by = owner;
                      item.updated_at = time_point_sec(current_time_point());
                    });
+
+    notify(owner, owner, wfitr->transit, wfitr->recipient);
   }
 
   
@@ -258,11 +264,17 @@ CONTRACT sealregistry : public eosio::contract {
                                          item.updated_by = updated_by;
                                          item.updated_at = time_point_sec(current_time_point());
                                        });
+    notify(updated_by, owner, wfitr->transit, wfitr->recipient);
   }
 
   
   ACTION delseal(uint64_t issuerid, uint64_t seqnum, string memo)
   {
+    issuerids _ids(_self, 0);
+    auto iiditr = _ids.find(issuerid);
+    check(iiditr != _ids.end(), "Unknown issuer ID");
+    name owner = iiditr->owner;
+
     seals _seals(_self, 0);
     auto slidx = _seals.get_index<name("seq")>();
     auto slitr = slidx.find(get_seq_key(issuerid, seqnum));
@@ -280,6 +292,7 @@ CONTRACT sealregistry : public eosio::contract {
                                            });
     
     slidx.erase(slitr);
+    notify(wfitr->recipient, owner, wfitr->transit, wfitr->recipient);
   }
 
 
@@ -394,7 +407,27 @@ CONTRACT sealregistry : public eosio::contract {
     name("seals"), seal,
     indexed_by<name("seq"), const_mem_fun<seal, uint128_t, &seal::get_seq>>,
     indexed_by<name("expires"), const_mem_fun<seal, uint64_t, &seal::get_expires>>
-    > seals;  
+    > seals;
+
+  
+  void notify(const name actor, const name owner, const name transit, const name recipient)
+  {
+    std::set<name> notified = {actor};
+
+    if( notified.count(owner) == 0 ) {
+      require_recipient(owner);
+      notified.insert(owner);
+    }
+
+    if( notified.count(transit) == 0 ) {
+      require_recipient(transit);
+      notified.insert(transit);
+    }
+
+    if( notified.count(recipient) == 0 ) {
+      require_recipient(recipient);
+    }
+  }
 };
 
   
