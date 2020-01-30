@@ -184,7 +184,9 @@ string with the following fields separated by slash (/):
 The code is printed as High error correction level because it has to
 be read in harsh conditions and from a significant distance.
 
-
+The resulting QR code is readable if printed on a 24x24mm label at 180
+dpi (tested with Brother P-Touch PT-P750W), although slightly bigger
+labels would be easier to scan.
 
 
 

@@ -8,6 +8,7 @@ const QRCode            = require('qrcode');
 
 program
     .option('--imgdir [value]', 'Directory for storing QR code images')
+    .option('--ext [value]', 'Output file format', 'png')
     .option('--loop', 'Continue by increasing sequence number')
     .parse(process.argv);
 
@@ -34,7 +35,7 @@ async function do_read_label(reader, card) {
             seqnum_pad = seqnum_pad.substr(seqnum_pad.length - 20);
 
             let filename = program.imgdir + '/' +
-                'seal_' + issuerid_pad + '_' + seqnum_pad + '.svg';
+                'seal_' + issuerid_pad + '_' + seqnum_pad + '.' + program.ext;
             
             console.info('Writing QR code to ' + filename);
             let data = '076CF31A2B7F35A3' + '/' +
@@ -45,7 +46,7 @@ async function do_read_label(reader, card) {
                           [
                               {data: data, mode: 'alphanumeric'}
                           ],
-                          {type: 'svg',
+                          {type: program.ext,
                            errorCorrectionLevel: 'H'},
                           function (err) {
                               if (err) throw err;
