@@ -1,0 +1,73 @@
+#!/usr/bin/env node
+
+'use strict'
+const program           = require('commander');
+const seal              = require('../lib/nfc-seal');
+const shajs             = require('sha.js');
+const QRCode            = require('qrcode');
+
+program
+    .option('--imgdir [value]', 'Directory for storing QR code images')
+    .option('--loop', 'Continue by increasing sequence number')
+    .parse(process.argv);
+
+if (!program.imgdir) {
+    program.help();
+}
+
+seal.nfc_loop(do_read_label, !program.loop);
+
+async function do_read_label(reader, card) {
+    let label = await seal.read_label(reader, card);
+    let issuerid = label.issuerid.readBigInt64BE();
+    let seqnum = label.seqnum.readBigInt64BE();
+    
+    console.info('Read a label for issuerid=' + issuerid.toString(10) +
+                 ' and seqnum=' + seqnum.toString(10));
+    
+    await (async () => {
+        try {
+            let issuerid_pad = '00000000000000000000' + issuerid.toString(10);
+            issuerid_pad = issuerid_pad.substr(issuerid_pad.length - 20);
+
+            let seqnum_pad = '00000000000000000000' + seqnum.toString(10);
+            seqnum_pad = seqnum_pad.substr(seqnum_pad.length - 20);
+
+            let filename = program.imgdir + '/' +
+                'seal_' + issuerid_pad + '_' + seqnum_pad + '.svg';
+            
+            console.info('Writing QR code to ' + filename);
+            QRCode.toFile(filename,
+                          [
+                              {data: '076CF31A2B7F35A3', mode: 'alphanumeric'},
+                              {data: issuerid, mode: 'numeric'},
+                              {data: seqnum, mode: 'numeric'},
+                              {data: shajs('sha256').update(label.labelsig).digest('binary'), mode: 'byte' }
+                          ],
+                          {type: 'svg',
+                           errorCorrectionLevel: 'H'},
+                          function (err) {
+                              if (err) throw err;
+                              console.log('done')
+                          });
+        } catch (e) {
+            console.error('ERROR: ' + e);
+        }
+    })();    
+}
+
+
+
+
+
+
+
+
+
+
+/*
+ Local Variables:
+ mode: javascript
+ indent-tabs-mode: nil
+ End:
+*/
