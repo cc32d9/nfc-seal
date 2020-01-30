@@ -173,7 +173,7 @@ of great help as a supplementary means of identifying the NFC labels.
 The QR code that identifies a label is formatted as an alphanumeric
 string with the following fields separated by slash (/):
 
-* alphanumeric project ID: `076CF31A2B7F35A3`;
+* project ID: `076CF31A2B7F35A3`;
 
 * issuer ID as decimal integer, zero-padded to 20 characters;
 
@@ -181,8 +181,8 @@ string with the following fields separated by slash (/):
 
 * 32-byte SHA256 hash of the label signature as uppercase hex string.
 
-The code is printed as High error correction level because it has to
-be read in harsh conditions and from a significant distance.
+The code is printed at high error correction level (H) because it has
+to be read in harsh conditions and from a significant distance.
 
 The resulting QR code is readable if printed on a 24x24mm label at 180
 dpi (tested with Brother P-Touch PT-P750W), although slightly bigger
