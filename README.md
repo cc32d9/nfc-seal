@@ -156,6 +156,41 @@ SHA256 hash of the 65-byte label signature is optionally published on
 the blockchain if tracking is needed.
 
 
+
+Supplementary QR code
+---------------------
+
+NFC labels require a very close contact, and sometimes there is a need
+to find the right label among a number of them. For example, if
+multiple containers are placed in a warehouse, scanning every NFC
+label in order to find the right one is impractical.
+
+QR codes can be read from a distance, and typically the scanning time
+is much shorter than that of NFC. QR labels cannot be used for
+authenticity checks because they are too easy to copy. But they can be
+of great help as a supplementary means of identifying the NFC labels.
+
+The QR code that identifies a label is formatted as multipart content
+as follows:
+
+* alphanumeric project ID: `076CF31A2B7F35A3`;
+
+* numeric (decimal) issuer ID
+
+* numeric (decimal) sequence number
+
+* binary 32-byte SHA256 hash of the label signature
+
+The code is printed as High error correction level because it has to
+be read in harsh conditions and from a significant distance.
+
+
+
+
+
+
+
+
 Usage of NXP NTAG 424 DNA chips
 -------------------------------
 
