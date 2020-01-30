@@ -37,12 +37,13 @@ async function do_read_label(reader, card) {
                 'seal_' + issuerid_pad + '_' + seqnum_pad + '.svg';
             
             console.info('Writing QR code to ' + filename);
+            let data = '076CF31A2B7F35A3' + '/' +
+                issuerid_pad + '/' + seqnum_pad + '/' +
+                shajs('sha256').update(label.labelsig).digest('hex').toUpperCase();
+            
             QRCode.toFile(filename,
                           [
-                              {data: '076CF31A2B7F35A3', mode: 'alphanumeric'},
-                              {data: issuerid, mode: 'numeric'},
-                              {data: seqnum, mode: 'numeric'},
-                              {data: shajs('sha256').update(label.labelsig).digest('binary'), mode: 'byte' }
+                              {data: data, mode: 'alphanumeric'}
                           ],
                           {type: 'svg',
                            errorCorrectionLevel: 'H'},

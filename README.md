@@ -170,16 +170,16 @@ is much shorter than that of NFC. QR labels cannot be used for
 authenticity checks because they are too easy to copy. But they can be
 of great help as a supplementary means of identifying the NFC labels.
 
-The QR code that identifies a label is formatted as multipart content
-as follows:
+The QR code that identifies a label is formatted as an alphanumeric
+string with the following fields separated by slash (/):
 
 * alphanumeric project ID: `076CF31A2B7F35A3`;
 
-* numeric (decimal) issuer ID
+* issuer ID as decimal integer, zero-padded to 20 characters;
 
-* numeric (decimal) sequence number
+* sequence number as decimal integer, zero-padded to 20 characters;
 
-* binary 32-byte SHA256 hash of the label signature
+* 32-byte SHA256 hash of the label signature as uppercase hex string.
 
 The code is printed as High error correction level because it has to
 be read in harsh conditions and from a significant distance.
