@@ -7,14 +7,21 @@ const shajs             = require('sha.js');
 const QRCode            = require('qrcode');
 
 program
+    .option('--format [value]', 'Format version: 0 without signature hash, 1 with it')
     .option('--imgdir [value]', 'Directory for storing QR code images')
     .option('--ext [value]', 'Output file format', 'png')
     .option('--loop', 'Continue by increasing sequence number')
     .parse(process.argv);
 
-if (!program.imgdir) {
+if (!program.imgdir || !program.format) {
     program.help();
 }
+
+if( program.format !== '0' && program.format !== '1' ) {
+    console.error('Wrong format version');
+    process.exit(1);
+}
+
 
 seal.nfc_loop(do_read_label, !program.loop);
 
@@ -38,13 +45,18 @@ async function do_read_label(reader, card) {
                 'seal_' + issuerid_pad + '_' + seqnum_pad + '.' + program.ext;
             
             console.info('Writing QR code to ' + filename);
-            let data = '076CF31A2B7F35A3' + '/' +
-                issuerid_pad + '/' + seqnum_pad + '/' +
-                shajs('sha256').update(label.labelsig).digest('hex').toUpperCase();
+            let data = ['076CF31A2B7F35A3',
+                        program.format,
+                        issuerid_pad,
+                        seqnum_pad];
+
+            if( program.format === '1' ) {
+                data.push(shajs('sha256').update(label.labelsig).digest('hex').toUpperCase());
+            }
             
             QRCode.toFile(filename,
                           [
-                              {data: data, mode: 'alphanumeric'}
+                              {data: data.join('/'), mode: 'alphanumeric'}
                           ],
                           {type: program.ext,
                            errorCorrectionLevel: 'H'},

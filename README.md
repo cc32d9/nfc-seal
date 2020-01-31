@@ -171,9 +171,11 @@ authenticity checks because they are too easy to copy. But they can be
 of great help as a supplementary means of identifying the NFC labels.
 
 The QR code that identifies a label is formatted as an alphanumeric
-string with the following fields separated by slash (/):
+string with the following fields separated by slash (`/`):
 
 * project ID: `076CF31A2B7F35A3`;
+
+* format version: `0` without the signature hash, `1` with it;
 
 * issuer ID as decimal integer, zero-padded to 20 characters;
 
@@ -184,9 +186,12 @@ string with the following fields separated by slash (/):
 The code is printed at high error correction level (H) because it has
 to be read in harsh conditions and from a significant distance.
 
-The resulting QR code is readable if printed on a 24x24mm label at 180
-dpi (tested with Brother P-Touch PT-P750W), although slightly bigger
-labels would be easier to scan.
+Test printouts have been made using 180dpi Brother P-Touch PT-P750W
+label printer.  Format 0 labels printed on 18mm tape were difficult to
+scan, but still readable. If using 24mm tape, both format 0 and 1
+labels were readable with a mobile phone. Format 0 labels were
+recognized quickly, while format 1 labels needed additional time to
+focus the camera.
 
 
 
