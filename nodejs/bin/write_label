@@ -11,6 +11,7 @@ program
     .option('--issuer [value]', 'Issuer ID')
     .option('--seq [value]', 'Sequence number', 1)
     .option('--key [value]', 'Private key')
+    .option('--uri [value]', 'Optional URI to add to NDEF data')
     .option('--loop', 'Continue by increasing sequence number')
     .parse(process.argv);
 
@@ -33,7 +34,7 @@ async function do_write_label(reader, card) {
     console.info('Writing a label for issuerid=' + issuerid.readBigInt64BE().toString(10) +
                  ' and seqnum=' + seqnum.readBigInt64BE().toString(10));
 
-    let labelsig = await seal.write_label(reader, card, issuerid, seqnum, privkey);
+    let labelsig = await seal.write_label(reader, card, issuerid, seqnum, privkey, program.uri);
     console.info('Done. sighash=' + shajs('sha256').update(labelsig).digest('hex'));
     
     if( program.loop ) {

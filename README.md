@@ -94,7 +94,12 @@ The protocol is applicable to NXP NTAG213/215/216 chips.
 The issuer has a secp256k1 or secp256r1 private key for issuing the
 seals.
 
-The NFC tag data is compliant with NDEF format, as follows:
+The data is written to an NFC chip in NDEF format. The first record of
+matching TNF and project ID is considered as a label. It is possible
+to add a record with an URL, and it's preferable to put it in front of
+the seal label record.
+
+NDEF record format:
 
 * TNF (Type Name Format Field): 0x05 (Unknown Record)
 

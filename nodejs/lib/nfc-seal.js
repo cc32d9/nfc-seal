@@ -26,7 +26,8 @@ myexports.nfc_loop = (callback, only_once) => {
                         card.cap.configOffset = 0x29; 
                         card.cap.passwordOffset = 0x2b; 
                         card.cap.packOffset = 0x2c;
-                        card.cap.chip = 'NTAG213'; 
+                        card.cap.chip = 'NTAG213';
+                        card.cap.maxdata = 144;
                         break;
                     case 0x3E:
                         // NTAG215
@@ -34,6 +35,7 @@ myexports.nfc_loop = (callback, only_once) => {
                         card.cap.passwordOffset = 0x85; 
                         card.cap.packOffset = 0x86;
                         card.cap.chip = 'NTAG215'; 
+                        card.cap.maxdata = 504;
                         break;
                     case 0x6D:
                         // NTAG216
@@ -41,6 +43,7 @@ myexports.nfc_loop = (callback, only_once) => {
                         card.cap.passwordOffset = 0xe5; 
                         card.cap.packOffset = 0xe6;
                         card.cap.chip = 'NTAG216'; 
+                        card.cap.maxdata = 888;
                         break;
                     default:
                         console.error('Unknown card');
@@ -122,7 +125,7 @@ myexports.read_seed = (reader, card, issuerid, seqnum) => {
 }
 
 
-myexports.write_label = async (reader, card, issuerid, seqnum, privkey) => {
+myexports.write_label = async (reader, card, issuerid, seqnum, privkey, uri) => {
     let seed = myexports.read_seed(reader, card, issuerid, seqnum);
     // console.log('Seed: ' + seed.toString('hex'));
 
@@ -151,13 +154,19 @@ myexports.write_label = async (reader, card, issuerid, seqnum, privkey) => {
     chksum.copy(payload, offset, 0, 2);    
     
     // console.log('Writing ' + payload.length + ' bytes of payload');    
-    let record = new ndef.Record(false,
-                                ndef.Record.TNF_UNKNOWN,
-                                new Uint8Array([]), // record type (unised in UNKNOWN)
-                                id,
-                                payload);
+    let records = [];
 
-    let message = new ndef.Message([record]);
+    if( uri != undefined ) {
+        records.push(new ndef.Utils.createUriRecord(uri));
+    }
+    
+    records.push(new ndef.Record(false,
+                                 ndef.Record.TNF_UNKNOWN,
+                                 new Uint8Array([]), // record type (unised in UNKNOWN)
+                                 id,
+                                 payload));
+        
+    let message = new ndef.Message(records);
         
     // add TLV (0x03, len), termination (0xFE)
     // and pad the NDEF data to 4-byte frames
@@ -168,6 +177,11 @@ myexports.write_label = async (reader, card, issuerid, seqnum, privkey) => {
     }
     
     let wrlen = Math.ceil((3+ndefdata.length)/4)*4;
+    if( wrlen > card.cap.maxdata ) {
+        throw new Error('Insufficuent space on the chip. Maximum data length: ' + card.cap.maxdata +
+                        ' bytes, attemted to write: ' + wrlen + ' bytes');
+    }
+        
     let wrbuf = Buffer.allocUnsafe(wrlen);
     wrbuf.fill(0);
     wrbuf.writeUInt8(0x03, 0);
@@ -195,47 +209,60 @@ myexports.read_label = async (reader, card) => {
         }
         
         let message = ndef.Message.fromBytes(Buffer.from(rawdata, 2, msglen));
-        let record = message.getRecords()[0];
-        let payload = Buffer.from(record.payload);
-        // console.log('Read ' + payload.length + ' bytes of payload');
-        let offset = 0;
+        let records = message.getRecords();
+
+        // look through records and find one matching the format
+        for(let i=0; i<records.length; i++) {
+            let record = records[i];
+            if( record.getTnf() != ndef.Record.TNF_UNKNOWN ) {
+                console.log('skipping record of TNF=' + record.getTnf());
+            }
+            else {
+                let payload = Buffer.from(record.payload);
+                // console.log('Read ' + payload.length + ' bytes of payload');
+                let offset = 0;
+                
+                let ps = payload.subarray(offset, offset+8);
+                offset += 8;
+                if( !ps.equals(myexports.projsig) ) {
+                    console.log('Wrong project signature: ' + ps.toString('hex'));
+                }
+                else {
+                    let fv = payload.subarray(offset, offset+2);
+                    offset += 2;
+                    if( !fv.equals(myexports.formatver) ) {
+                        throw('Wrong format version: ' + fv.toString('hex'));
+                    }
         
-        let ps = payload.subarray(offset, offset+8);
-        offset += 8;
-        if( !ps.equals(myexports.projsig) ) {
-            throw('Wrong project signature: ' + ps.toString('hex'));
+                    let issuerid = Buffer.allocUnsafe(8);
+                    payload.copy(issuerid, 0, offset, offset+8);
+                    offset += 8;
+                    
+                    let seqnum = Buffer.allocUnsafe(8);
+                    payload.copy(seqnum, 0, offset, offset+8);
+                    offset += 8;
+                    
+                    let labelsig = Buffer.allocUnsafe(65);
+                    payload.copy(labelsig, 0, offset, offset+65);
+                    offset += 65;
+                    
+                    let chksum = shajs('sha256').update(payload.subarray(0, offset)).digest();
+                    if( !payload.subarray(offset, offset+2).equals(chksum.subarray(0, 2)) ) {
+                        console.error('Cecksum on chip: ' + payload.subarray(offset, offset+2).toString('hex') +
+                                      ', should be: ' + chksum.subarray(0, 2).toString('hex'));
+                        throw('Incorrect label checksum');
+                    }
+        
+                    return {'seed': myexports.read_seed(reader, card, issuerid, seqnum),
+                            'issuerid': issuerid,
+                            'seqnum': seqnum,
+                            'labelsig': labelsig
+                           };
+                }
+            }
         }
         
-        let fv = payload.subarray(offset, offset+2);
-        offset += 2;
-        if( !fv.equals(myexports.formatver) ) {
-            throw('Wrong format version: ' + fv.toString('hex'));
-        }
-        
-        let issuerid = Buffer.allocUnsafe(8);
-        payload.copy(issuerid, 0, offset, offset+8);
-        offset += 8;
-        
-        let seqnum = Buffer.allocUnsafe(8);
-        payload.copy(seqnum, 0, offset, offset+8);
-        offset += 8;
-        
-        let labelsig = Buffer.allocUnsafe(65);
-        payload.copy(labelsig, 0, offset, offset+65);
-        offset += 65;
-        
-        let chksum = shajs('sha256').update(payload.subarray(0, offset)).digest();
-        if( !payload.subarray(offset, offset+2).equals(chksum.subarray(0, 2)) ) {
-            console.error('Cecksum on chip: ' + payload.subarray(offset, offset+2).toString('hex') +
-                          ', should be: ' + chksum.subarray(0, 2).toString('hex'));
-            throw('Incorrect label checksum');
-        }
-        
-        return {'seed': myexports.read_seed(reader, card, issuerid, seqnum),
-                'issuerid': issuerid,
-                'seqnum': seqnum,
-                'labelsig': labelsig
-               };
+        throw('Could not find a seal record');
     }
     catch(e) {
         console.error(e);
