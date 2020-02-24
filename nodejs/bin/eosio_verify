@@ -27,10 +27,13 @@ seal.nfc_loop(do_read_label, !program.loop);
 
 async function do_read_label(reader, card) {
     let label = await seal.read_label(reader, card);
-    console.info('Read a label for issuerid=' + label.issuerid.readBigInt64BE().toString(10) +
-                 ' and seqnum=' + label.seqnum.readBigInt64BE().toString(10));
+    let issuerid = label.issuerid.readBigInt64BE();
+    let seqnum = label.seqnum.readBigInt64BE();
     
-    let seqkey = label.issuerid.readBigInt64BE() * (2n**64n) + label.seqnum.readBigInt64BE();
+    console.info('Read a label for issuerid=' + issuerid.toString(10) +
+                 ' and seqnum=' + seqnum.toString(10));
+    
+    let seqkey = issuerid * (2n**64n) + seqnum;
     console.log('Lookup key: ' + seqkey);
     
     await (async () => {
@@ -49,9 +52,12 @@ async function do_read_label(reader, card) {
                 show_payer: false
             });
 
-            if( resp.rows.length == 0 ) {
-                console.error('Cannot find a public key for issuerid=' + label.issuerid.readBigInt64BE().toString(10) +
-                              ' and seqnum=' + label.seqnum.readBigInt64BE().toString(10));
+            if( resp.rows.length == 0 ||
+                resp.rows[0].issuerid != issuerid ||
+                resp.rows[0].seq_start > seqnum ||
+                resp.rows[0].seq_end < seqnum ) {
+                console.error('Cannot find a public key for issuerid=' + issuerid.toString(10) +
+                              ' and seqnum=' + seqnum.toString(10));
             }
             else {
                 let pubkey = resp.rows[0].pubkey;
@@ -81,11 +87,11 @@ async function do_read_label(reader, card) {
                     });
 
                     if( resp.rows.length == 0 ||
-                        BigInt(resp.rows[0].issuerid) != label.issuerid.readBigInt64BE() ||
-                        BigInt(resp.rows[0].seqnum) != label.seqnum.readBigInt64BE() ) {
+                        BigInt(resp.rows[0].issuerid) != issuerid ||
+                        BigInt(resp.rows[0].seqnum) != seqnum ) {
                         console.error('Cannot find a seal on blockchain for ' +
-                                      'issuerid=' + label.issuerid.readBigInt64BE().toString(10) +
-                                      ' and seqnum=' + label.seqnum.readBigInt64BE().toString(10));
+                                      'issuerid=' + issuerid.toString(10) +
+                                      ' and seqnum=' + seqnum.toString(10));
                     }
                     else {
                         let sighash = shajs('sha256').update(label.labelsig).digest('hex');
