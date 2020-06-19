@@ -204,11 +204,12 @@ myexports.read_label = async (reader, card) => {
         }
         
         let msglen = rawdata.readUInt8(1);
+        console.log('msglen: ' + msglen);
         if( rawdata.readUInt8(2+msglen) != 0xFE ) {
             throw('Missing TLV terminator');
         }
-        
-        let message = ndef.Message.fromBytes(Buffer.from(rawdata, 2, msglen));
+
+        let message = ndef.Message.fromBytes(rawdata.subarray(2, 2+msglen));
         let records = message.getRecords();
 
         // look through records and find one matching the format

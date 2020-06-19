@@ -14,8 +14,7 @@
         "node": ">= 0.12.0"
     },
     "dependencies": {
-        "@pokusew/pcsclite": "pokusew/node-pcsclite#pull/26/head",
-        "nfc-pcsc": "^0.7.4",
+        "nfc-pcsc": ">=0.8.0",
         "@taptrack/ndef": ">= 1.0.3",
         "commander": "^2.19.0",
         "node-fetch": ">= 2.6.0",
