@@ -1,5 +1,5 @@
-NFC Seal of Authenticity
-========================
+FONTO.io: NFC Seal of Authenticity
+==================================
 
 Telegram chat for project discussion: https://t.me/nfc_seal
 
