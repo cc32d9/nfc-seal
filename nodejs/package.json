@@ -17,7 +17,7 @@
         "nfc-pcsc": ">=0.8.0",
         "@taptrack/ndef": ">= 1.0.3",
         "commander": "^2.19.0",
-        "node-fetch": ">= 2.6.0",
+        "node-fetch": ">= 2.6.7",
         "eosjs": "^20.0.0",
         "sha.js": ">= 2.4.11",
         "qrcode": ">= 1.4.4"
